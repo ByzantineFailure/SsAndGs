@@ -5,4 +5,4 @@ Shits and Giggles projects
 
 A bunch of stupid things I've put together.  Currently contains:
 
-1.  A generic radix tree implementation that I used as a way of familiarizing myself with some of MSVC's quirks and their development environment.  It's not really fully tested yet.  No, there is no Makefile as of yet.
+1.  A generic radix tree implementation that I used as a way of familiarizing myself with some of MSVC's quirks and their development environment.  It's kind of tested and can be considered in its alpha stages.  A testing framework comes with it.  There is no Makefile -- if you want a hacked-up radix tree in C in its alpha stages, you're probably a big enough kid to write your own for a single .c and .h file.

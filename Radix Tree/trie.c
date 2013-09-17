@@ -3,7 +3,15 @@
 #define TRIE_NODE_CHECK_SUCCESS 1
 #define TRIE_NODE_CHECK_FAILURE -1
 
-//void trie_freeNode(trie_node *toFree);
+#define TRIE_NODEFREE_STATUS_FREED 1
+#define TRIE_NODEFREE_STATUS_NOTFREED 2
+
+typedef struct trie_search_result {
+	trie_get_result *result;
+	trie_node *node;
+} trie_search_result;
+
+trie_remove_result *trie_removeNode(trie *removeFrom, trie_key *remove);
 int trie_getKey_checkNode(trie_node *toCheck);
 trie_search_result* trie_getKey_getSearchResult(trie *getFrom, trie_key *get, trie_get_result *result, int ignoreContentCheck);
 void trie_getKey_traverseNode(trie_node *check, trie_key *get, long int depth, trie_search_result *search);
@@ -11,7 +19,7 @@ trie_node *trie_addNode_createNodeForKey(trie *addTo, trie_key *key, void *conte
 trie_node *trie_addNode_createNodeForKey_recursiveCall(trie_node *addTo, trie_key *key, void *content, long int depth);
 trie_node *trie_createNode(char *key, int keyLength);
 char *trie_addNode_createPartialKey(trie_key *key, int partialLength);
-int trie_freeNode_internalNodeFree(trie_node *toFree, int freeEntireTrie);
+int trie_removeNode_internalNodeFree(trie_node *toFree, int freeEntireTrie);
 
 //Public
 trie* trie_newTrie(long int dataSize, long int radixDepth)
@@ -54,6 +62,13 @@ trie_search_result* trie_getKey_getSearchResult(trie *getFrom, trie_key *get, tr
 	result->status = TRIE_GET_STATUS_DNE;
 	search->result = result;
 	search->node = 0;
+
+	if(get->length == 0)
+	{
+		//DEBUG_LOG(2, "trie_getKey called for zero-length key\n");
+		result->status = TRIE_GET_STATUS_ZERO_LENGTH_KEY;
+		return search;
+	}
 
 	if(getFrom->nodes[get->key[0]] == 0)		
 	{
@@ -202,12 +217,12 @@ int trie_addNode(trie *addTo, void *content, trie_key *key)
 		}
 	}
 	
-	//DEBUG_LOG(3, "Trie does not contain node for key %s\n", debugKey);	
+	DEBUG_LOG(3, "Trie does not contain node for key %s\n", debugKey);	
 	free(result);
 	free(check);
 	trie_addNode_createNodeForKey(addTo, key, content);
-	FREE_DEBUG_KEY(debugKey);
 	DEBUG_LOG(2, "Exiting trie_addNode for key %s\n", debugKey);
+	FREE_DEBUG_KEY(debugKey);
 	return TRIE_ADD_STATUS_SUCCESS;
 }
 
@@ -276,6 +291,7 @@ trie_node *trie_createNode(char *key, int keyLength)
 	newKey->length = keyLength;
 	newNode->key = newKey;
 	newNode->childrenHaveContent = 0;
+	newNode->content = 0;
 	newNode->children = (trie_node **)malloc(sizeof(trie_node *) * TRIE_CHILDREN_PER_NODE);
 	
 	//Apparently msvc doesn't do this?
@@ -308,46 +324,74 @@ char *trie_addNode_createPartialKey(trie_key *key, int partialLength)
 }
 
 //Public
-int trie_freeNode(trie *freeFrom, trie_key *toFree, int freeContent)
+trie_remove_result *trie_removeNode(trie *freeFrom, trie_key *toFree)
 {
 	char *debugKey =  GET_DEBUG_KEY(toFree);
-	int freeResult;
-	//DEBUG_LOG(2, "Calling trie_FreeNode on key %s\n", debugKey);
+	//DEBUG_LOG(2, "Calling trie_removeNode on key %s\n", debugKey);
 	
+	trie_remove_result *remove = (trie_remove_result *)malloc(sizeof(trie_remove_result));
+	//Find the node in question, if it exists
 	trie_get_result *result = (trie_get_result *)malloc(sizeof(trie_get_result));
 	trie_search_result *search = trie_getKey_getSearchResult(freeFrom, toFree, result, 0);
+		
+	char *parentKeyString = trie_addNode_createPartialKey(toFree, toFree->length - 1);
+	trie_key *parentKey = (trie_key *)malloc(sizeof(trie_key));
+	trie_get_result *parentResult = (trie_get_result *)malloc(sizeof(trie_get_result));
+	trie_search_result *parent;
+	int freeResult;
+	parentKey->key = parentKeyString;
+	parentKey->length = toFree->length - 1;
+
+	parent = trie_getKey_getSearchResult(freeFrom, parentKey, parentResult, 1);
 	
-	/*
+
 	if(search->result->status == TRIE_GET_STATUS_DNE)
 	{
 		DEBUG_LOG(1, "Attempted to free node that does not exist!  Key: %s\n", debugKey);
-	}
-	*/
-	free(result);
-	if(freeContent)
-	{
-		if(search->node->content)
-			free(search->node->content);
-		//else
-			//DEBUG_LOG(3, "No content to free for node at key %s\n", debugKey);
+		remove->status = TRIE_REMOVE_STATUS_DNE;
+		remove->result = 0;
+		free(parentKey->key);
+		free(parentKey);
+		free(parentResult);
+		free(parent);
+		free(result);
+		free(search);
+		return remove;
 	}
 
-	freeResult = trie_freeNode_internalNodeFree(search->node, 0);
+	free(result);
+	remove->result = search->node->content;
 	
+	search->node->content = 0;
+	
+	if(parent->result->status != TRIE_GET_STATUS_ZERO_LENGTH_KEY)
+	{
+		parent->node->children[toFree->key[toFree->length - 1]] = 0;	
+	}
+
+	freeResult = trie_removeNode_internalNodeFree(search->node, 0);
+	
+	remove->status = freeResult;
+
 	free(search);
 
 	if(freeResult == TRIE_NODEFREE_STATUS_NOTFREED)
 	{
 		DEBUG_LOG(1, "Failed to free node for some reason.  Key: %s\n", debugKey);
+		remove->status = TRIE_REMOVE_STATUS_FAILURE;
+	}
+	else
+	{
+		remove->status = TRIE_REMOVE_STATUS_SUCCESS;
 	}
 
 	FREE_DEBUG_KEY(debugKey);
 
-	return freeResult;
+	return remove;
 }
 
 //Private
-int trie_freeNode_internalNodeFree(trie_node *toFree, int freeEntireTrie)
+int trie_removeNode_internalNodeFree(trie_node *toFree, int freeEntireTrie)
 {
 	char *debugKey = GET_DEBUG_KEY(toFree->key);
 	//DEBUG_LOG(3, "Performing internalNodeFree on node of key %s\n", debugKey);
@@ -355,7 +399,7 @@ int trie_freeNode_internalNodeFree(trie_node *toFree, int freeEntireTrie)
 	int i;
 	int freeStatus;
 	int hasChildren = 0;
-
+	
 	for(i = 0; i < TRIE_CHILDREN_PER_NODE; i++)
 	{
 		currentNode = toFree->children[i];
@@ -365,7 +409,7 @@ int trie_freeNode_internalNodeFree(trie_node *toFree, int freeEntireTrie)
 			continue;
 		}
 		
-		freeStatus = trie_freeNode_internalNodeFree(currentNode, 0);
+		freeStatus = trie_removeNode_internalNodeFree(currentNode, freeEntireTrie);
 		
 		if(freeStatus = TRIE_NODEFREE_STATUS_FREED)
 		{
@@ -378,7 +422,7 @@ int trie_freeNode_internalNodeFree(trie_node *toFree, int freeEntireTrie)
 	}
 
 	if((toFree->content == 0 && toFree->childrenHaveContent == 0 && hasChildren == 0)
-		|| freeEntireTrie == 1)
+		|| freeEntireTrie)
 	{
 		free(toFree->key->key);
 		free(toFree->key);
@@ -392,7 +436,7 @@ int trie_freeNode_internalNodeFree(trie_node *toFree, int freeEntireTrie)
 	
 		free(toFree);
 	
-		if(freeEntireTrie == 0)
+		if(!freeEntireTrie)
 		{
 			DEBUG_LOG(3, "internalNodeFree found no content and is not marked as having children with content, freeing node with key %s\n", debugKey);
 		}
@@ -419,7 +463,10 @@ void trie_destroy(trie *toDestroy)
 	int i;
 	for(i = 0; i < TRIE_CHILDREN_PER_NODE; i++)
 	{
-		trie_freeNode_internalNodeFree(toDestroy->nodes[i], 1);
+		if(toDestroy->nodes[i] != 0)
+		{
+			trie_removeNode_internalNodeFree(toDestroy->nodes[i], 1);
+		}
 	}
 
 };

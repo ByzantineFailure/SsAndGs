@@ -16,15 +16,15 @@
 #endif
 
 #ifdef DEBUG_LOGGING
-#define DEBUG_LOG(level, ...) do { if(level <= DEBUG_LEVEL) { timestamp(LOG_OUTPUT); fprintf(LOG_OUTPUT, __VA_ARGS__); } } while(0)
+#define DEBUG_LOG(level, ...) do { if(level <= DEBUG_LEVEL) { timestamp(LOG_OUTPUT); fprintf(LOG_OUTPUT, __VA_ARGS__); } } while(0);
 #else
-#define DEBUG_LOG(level, ...) do { } while (0)
+#define DEBUG_LOG(level, ...) do { } while (0);
 #endif
 
 #ifdef STANDARD_LOGGING
-#define LOG(level, ...) do { if(level <= LOG_LEVEL) { timestamp(LOG_OUTPUT); fprintf(LOG_OUTPUT, __VA_ARGS__); } } while(0)
+#define LOG(level, ...) do { if(level <= LOG_LEVEL) { timestamp(LOG_OUTPUT); fprintf(LOG_OUTPUT, __VA_ARGS__); } } while(0);
 #else
-#define LOG(level, ...) do { } while(0)
+#define LOG(level, ...) do { } while(0);
 #endif
 
 void timestamp(FILE* output);
