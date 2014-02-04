@@ -1,7 +1,7 @@
 SsAndGs
 =======
 
-Shits and Giggles projects
+Shits and Giggles projects.  Written for the MS C compiler present in Visual Studio 2012.
 
 A bunch of stupid things I've put together.  Currently contains:
 
