@@ -1,6 +1,8 @@
 SsAndGs
 =======
 
+![What I think of this code](https://i.imgur.com/x3hLj.jpg)
+
 Shits and Giggles projects.  Written for the MS C compiler present in Visual Studio 2012.
 
 A bunch of stupid things I've put together.  Currently contains:
